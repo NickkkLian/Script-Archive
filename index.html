@@ -211,10 +211,18 @@ const FILE = 'script-archive.json';   // 位于所连仓库的根目录
 /* ---------- 双语（语言偏好存在同源共享键里） ---------- */
 let lang = (()=>{ try{ return localStorage.getItem('pha-lang')==='en'?'en':'zh' }catch{ return 'zh' } })();
 const T = (zh,en) => lang==='en' ? en : zh;
-// 类型/档位这些是**存储值**，不翻译存的内容，只翻译显示
-const TYPE_EN = {'推理':'Mystery','情感':'Drama','欢乐':'Fun','立意':'Concept'};
-const tyLabel = v => lang==='en' ? (TYPE_EN[v]||v) : v;
+// ⚠️ 分三层，别混：
+//   id（存进数据里的值，**绝不能改**，改了要迁移全部条目）：推理 / 情感 / 欢乐 / 立意
+//   展示名（只影响界面，随便改）：见 TYPE_LABEL
+//   CSS 类名 .ty-<id>：跟着 id 走（展示名带斜杠，做不了类名）
 const TYPES = ['推理','情感','欢乐','立意'];
+const TYPE_LABEL = {
+  '推理': {zh:'推理/还原',      en:'Mystery / Reconstruction'},
+  '情感': {zh:'情感',           en:'Drama'},
+  '欢乐': {zh:'机制/阵营/欢乐', en:'Mechanics / Factions / Fun'},
+  '立意': {zh:'体验/全类型',    en:'Experience / All-round'},
+};
+const tyLabel = v => (TYPE_LABEL[v] || {})[lang] || v;
 
 /* ---------- 梯队规则：分数 → 档位 ---------- */
 const TIER_RULES = [['SSS',9.0],['SS',8.0],['S',7.5],['A+',7.0],['A',6.5],['B',6.0],['C',5.0],['D',3.0],['F',0]];
@@ -349,7 +357,7 @@ function drawYear(){
     h += `<div class="card"><div class="colhead"><span>${y}</span><span>${inY.length} ${T('本','scripts')}</span></div><div class="cols c3">`;
     GROUPS.forEach(g=>{
       const list = inY.filter(s=>g.includes(s.type));
-      h += `<div><div class="meta" style="margin-bottom:6px">${g.map(tyLabel).join(' / ')}</div>
+      h += `<div><div class="meta" style="margin-bottom:6px">${g.map(tyLabel).join(' ·  ')}</div>
         <div class="chips">${list.map(s=>chipHTML(s, top10.get(s.id))).join('')||`<span class="meta">—</span>`}</div></div>`;
     });
     h += `</div></div>`;
