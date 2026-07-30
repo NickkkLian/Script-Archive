@@ -301,11 +301,14 @@ function render(){
   TABS.forEach(([k])=>$('view-'+k).classList.toggle('hide', k!==TAB));
   ({tier:drawTier, cat:drawCat, year:drawYear, list:drawLists, host:drawHost, sess:drawSess})[TAB]();
   const n = DATA.scripts.length, chk = orderOK();
+  const withRev = DATA.scripts.filter(s=>s.review).length;
   $('stat').textContent = `${n} ${T('本','scripts')} · ${DATA.lists.length} ${T('榜','lists')} · ${DATA.sessions.length} ${T('场次','sessions')}`
+    + (withRev ? ` · ${withRev} ${T('有剧评','reviewed')}` : '')
     + (chk.ok ? ` · ${T('顺序自洽 ✓','order ✓')}` : ` · ⚠️ ${T('顺序与分数矛盾','order vs score')}`);
 }
 
-const chipHTML = (s, no) => `<span class="chip ty-${s.type}" data-id="${s.id}">${no?`<span class="no">${no}</span>`:''}${esc(s.name)}<span class="sc">${s.score}</span></span>`;
+const chipHTML = (s, no) => `<span class="chip ty-${s.type}" data-id="${s.id}">${no?`<span class="no">${no}</span>`:''}${esc(s.name)}` +
+  `${s.review?'<span class="sc" title="有剧评">✍️</span>':''}<span class="sc">${s.score}</span></span>`;
 function wireChips(root){
   root.querySelectorAll('.chip[data-id],li[data-id],tr[data-id]').forEach(e=>e.onclick=()=>openDetail(e.dataset.id));
 }
@@ -453,9 +456,9 @@ function doSearch(){
   const q = $('q').value.trim().toLowerCase();
   const box = $('searchout');
   if(!q){ box.classList.add('hide'); return; }
-  const hit = byRank().filter(s => s.name.toLowerCase().includes(q)
-      || (s.aliases||[]).some(a=>a.toLowerCase().includes(q))
-      || (s.note||'').toLowerCase().includes(q));
+  const hit = byRank().filter(s => [s.name, s.note, s.review, s.author, s.publisher]
+      .some(v => (v||'').toLowerCase().includes(q))
+      || (s.aliases||[]).some(a=>a.toLowerCase().includes(q)));
   box.classList.remove('hide');
   box.innerHTML = `<div class="colhead"><span>${T('搜到','Found')} ${hit.length}</span><span>${esc(q)}</span></div>
     <div class="chips">${hit.slice(0,80).map(s=>chipHTML(s)).join('')||`<span class="meta">${T('没有','none')}</span>`}</div>`;
@@ -486,8 +489,11 @@ function openDetail(id){
     <div class="row" style="margin-bottom:12px">
       <span class="tiername ${tierClass(t)}" style="padding:4px 12px;font-size:14px">${t}</span>
       <span class="badge">${s.score}</span>
+      ${s.extScore!=null?`<span class="badge" title="${T('外部评分，仅供参考，不参与梯队与排序','External rating — reference only')}">${T('外部','ext')} ${s.extScore}</span>`:''}
       ${(s.aliases||[]).map(a=>`<span class="badge">${esc(a)}</span>`).join('')}
     </div>
+    ${(s.author||s.publisher)?`<div class="meta" style="margin-bottom:10px">${s.author?T('作者 ','Author ')+esc(s.author):''}${s.author&&s.publisher?' · ':''}${s.publisher?T('发行 ','Publisher ')+esc(s.publisher):''}</div>`:''}
+    ${s.review?`<div class="card" style="background:var(--panel2);white-space:pre-wrap">${esc(s.review)}</div>`:''}
     ${s.note?`<p style="margin-bottom:12px">${esc(s.note)}</p>`:''}
     ${inLists.length?`<div class="meta" style="margin-bottom:6px">${T('在这些榜里','In lists')}: ${inLists.map(l=>esc(l.name)).join('、')}</div>`:''}
     ${inSess.length?`<div class="meta" style="margin-bottom:6px">${T('铁屁股','Marathon')}: ${inSess.map(x=>esc(x.label)+' '+esc(x.hours)).join('、')}</div>`:''}
@@ -534,6 +540,12 @@ function openEdit(id){
       <div class="fld" style="flex:1"><label>${T('类型','Type')}</label><select id="e-type">${TYPES.map(t=>`<option value="${t}"${s.type===t?' selected':''}>${tyLabel(t)}</option>`).join('')}</select></div>
       <div class="fld" style="flex:1"><label>${T('年份','Year')}</label><input id="e-year" type="number" min="2000" max="2099" value="${s.year??''}"></div>
     </div>
+    <div class="row">
+      <div class="fld" style="flex:2"><label>${T('作者','Author')}</label><input id="e-author" value="${esc(s.author||'')}"></div>
+      <div class="fld" style="flex:2"><label>${T('发行','Publisher')}</label><input id="e-pub" value="${esc(s.publisher||'')}"></div>
+      <div class="fld" style="flex:1"><label>${T('外部评分','Ext. score')}</label><input id="e-ext" type="number" step="0.1" value="${s.extScore??''}"></div>
+    </div>
+    <div class="fld"><label>${T('我的剧评','My review')}</label><textarea id="e-review" rows="4">${esc(s.review||'')}</textarea></div>
     <div class="fld"><label>${T('别名（逗号分隔，榜单里写的简称）','Aliases')}</label><input id="e-alias" value="${esc((s.aliases||[]).join(', '))}"></div>
     <div class="fld"><label>${T('备注','Note')}</label><textarea id="e-note" rows="2">${esc(s.note||'')}</textarea></div>
     <p class="meta" id="e-tier"></p>
@@ -560,7 +572,10 @@ function openEdit(id){
     const yr = parseInt($('e-year').value);
     const rec = id ? s : {id:'s'+Date.now().toString(36), rank:DATA.scripts.length};
     const scoreChanged = !id || rec.score !== score;
+    const ext = parseFloat($('e-ext').value);
     Object.assign(rec, {name, score, type:$('e-type').value, year:isNaN(yr)?null:yr,
+      author:$('e-author').value.trim(), publisher:$('e-pub').value.trim(),
+      extScore:isNaN(ext)?null:ext, review:$('e-review').value.trim(),
       aliases:$('e-alias').value.split(/[,，]/).map(x=>x.trim()).filter(Boolean),
       note:$('e-note').value.trim()});
     if(!id) DATA.scripts.push(rec);
