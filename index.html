@@ -303,12 +303,11 @@ function render(){
   const n = DATA.scripts.length, chk = orderOK();
   const withRev = DATA.scripts.filter(s=>s.review).length;
   $('stat').textContent = `${n} ${T('本','scripts')} · ${DATA.lists.length} ${T('榜','lists')} · ${DATA.sessions.length} ${T('场次','sessions')}`
-    + (withRev ? ` · ${withRev} ${T('有剧评','reviewed')}` : '')
+    + (withRev && withRev < n ? ` · ${withRev} ${T('有剧评','reviewed')}` : '')
     + (chk.ok ? ` · ${T('顺序自洽 ✓','order ✓')}` : ` · ⚠️ ${T('顺序与分数矛盾','order vs score')}`);
 }
 
-const chipHTML = (s, no) => `<span class="chip ty-${s.type}" data-id="${s.id}">${no?`<span class="no">${no}</span>`:''}${esc(s.name)}` +
-  `${s.review?'<span class="sc" title="有剧评">✍️</span>':''}<span class="sc">${s.score}</span></span>`;
+const chipHTML = (s, no) => `<span class="chip ty-${s.type}" data-id="${s.id}">${no?`<span class="no">${no}</span>`:''}${esc(s.name)}<span class="sc">${s.score}</span></span>`;
 function wireChips(root){
   root.querySelectorAll('.chip[data-id],li[data-id],tr[data-id]').forEach(e=>e.onclick=()=>openDetail(e.dataset.id));
 }
