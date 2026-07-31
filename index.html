@@ -596,7 +596,9 @@ function editList(lid){
           <span class="s"><button class="btn ghost" data-u="${i}" ${i===0?'disabled':''}>↑</button>
           <button class="btn ghost" data-d="${i}" ${i===l.items.length-1?'disabled':''}>↓</button>
           <button class="btn ghost" data-x="${i}">×</button></span></li>`;}).join('')}</ol>
-      <div class="fld" style="margin-top:12px"><label>${T('加一本（输名字）','Add by name')}</label><input id="l-add"></div>
+      <div class="fld" style="margin-top:12px"><label>${T('加一本（打几个字就行）','Add — type a few characters')}</label>
+        <input id="l-add" autocomplete="off"></div>
+      <div class="els" id="l-hint"></div>
       <div class="row"><button class="btn" id="l-ok">${T('完成','Done')}</button>
         <button class="btn ghost" id="l-ren">${T('改名','Rename')}</button>
         <button class="btn danger" id="l-del" style="margin-left:auto">${T('删掉这个榜','Delete list')}</button></div>`;
@@ -606,15 +608,45 @@ function editList(lid){
       [l.items[i+1],l.items[i]]=[l.items[i],l.items[i+1]]; markDirty(); draw();});
     $('modal').querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{
       l.items.splice(+b.dataset.x,1); markDirty(); draw();});
+    /* 加本子：边打边出候选，点一下就加。
+       ⚠️ 原来只在按下回车时才提交，且要求一字不差打全名 —— 打完直接点「完成」
+       会把输入**静默丢掉**。静默丢弃用户输入是最坏的失败方式。 */
+    const match = q => {
+      q = q.trim().toLowerCase(); if(!q) return [];
+      return byRank().filter(s => !l.items.includes(s.id) &&
+        (s.name.toLowerCase().includes(q) || (s.aliases||[]).some(a=>a.toLowerCase().includes(q))));
+    };
+    const addOne = s => { l.items.push(s.id); $('l-add').value=''; markDirty(); draw(); };
+    const paint = () => {
+      const hits = match($('l-add').value);
+      $('l-hint').innerHTML = !$('l-add').value.trim() ? ''
+        : (hits.length ? hits.slice(0,12).map(s=>
+            `<span class="el" data-add="${s.id}">${esc(s.name)}<span class="sc">${s.score}</span></span>`).join('')
+             + (hits.length>12?`<span class="meta">…${T('还有','+')} ${hits.length-12}</span>`:'')
+           : `<span class="meta">${T('没有匹配的剧本','No match')}</span>`);
+      $('l-hint').querySelectorAll('[data-add]').forEach(x=>x.onclick=()=>addOne(getS(x.dataset.add)));
+    };
+    $('l-add').oninput = paint;
     $('l-add').onkeydown = e => {
       if(e.key!=='Enter') return;
-      const nm = e.target.value.trim(); if(!nm) return;
-      const s = DATA.scripts.find(x=>x.name===nm || (x.aliases||[]).includes(nm));
-      if(!s) return toast(T('库里没有这一本','Not found'), true);
-      if(l.items.includes(s.id)) return toast(T('已经在榜里了','Already in list'), true);
-      l.items.push(s.id); e.target.value=''; markDirty(); draw();
+      e.preventDefault();
+      const hits = match(e.target.value);
+      if(hits.length===1) addOne(hits[0]);
+      else if(!hits.length) toast(T('库里没有这一本','Not found'), true);
+      else toast(T(`有 ${hits.length} 本匹配，点一下你要的那本`, `${hits.length} matches — click one`), true);
     };
-    $('l-ok').onclick = ()=>{ closeModal(); drawLists(); };
+    $('l-ok').onclick = ()=>{
+      // 输入框里还有没提交的字 → **不许静默丢掉**
+      const pending = $('l-add').value.trim();
+      if(pending){
+        const hits = match(pending);
+        if(hits.length===1){ addOne(hits[0]); }
+        else { toast(hits.length ? T(`「${pending}」有 ${hits.length} 本匹配，点一下你要的那本再完成`, `${hits.length} matches — pick one first`)
+                                 : T(`库里没有「${pending}」，删掉它再点完成`, `No match for "${pending}"`), true);
+               $('l-add').focus(); return; }
+      }
+      closeModal(); drawLists();
+    };
     $('l-ren').onclick = ()=>{ const n=prompt(T('改成什么名字？','New name?'), l.name); if(n){l.name=n.trim(); markDirty(); draw();} };
     $('l-del').onclick = ()=>{ if(!confirm(T('删掉整个榜单？','Delete the whole list?'))) return;
       DATA.lists = DATA.lists.filter(x=>x.id!==lid); markDirty(); closeModal(); drawLists(); };
