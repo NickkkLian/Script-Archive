@@ -606,9 +606,9 @@ function editList(lid){
       <div class="meta" style="margin-bottom:10px">${T('顺序就是名次，可以上下挪','Order = rank')}</div>
       <ol class="rank">${l.items.map((id,i)=>{const s=getS(id);
         return `<li><span>${esc(s?s.name:'?')}</span>
-          <span class="s"><button class="btn ghost" data-u="${i}" ${i===0?'disabled':''}>↑</button>
-          <button class="btn ghost" data-d="${i}" ${i===l.items.length-1?'disabled':''}>↓</button>
-          <button class="btn ghost" data-x="${i}">×</button></span></li>`;}).join('')}</ol>
+          <span class="s"><button aria-label="${T('上移','Move up')}" class="btn ghost" data-u="${i}" ${i===0?'disabled':''}>↑</button>
+          <button aria-label="${T('下移','Move down')}" class="btn ghost" data-d="${i}" ${i===l.items.length-1?'disabled':''}>↓</button>
+          <button aria-label="${T('从榜单移除','Remove from list')}" class="btn ghost" data-x="${i}">×</button></span></li>`;}).join('')}</ol>
       <div class="fld" style="margin-top:12px"><label>${T('加一本（打几个字就行）','Add — type a few characters')}</label>
         <input id="l-add" autocomplete="off"></div>
       <div class="els" id="l-hint"></div>
